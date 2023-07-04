@@ -49,7 +49,7 @@ list_of_stories = element.find_elements(By.TAG_NAME, 'a')
 links = [story.get_attribute('href') for story in list_of_stories]
 
 for idx, link in enumerate(links):
-    print(idx + 1)
+    #print(idx + 1)
     driver.get(link)
 
 
@@ -76,7 +76,7 @@ for idx, link in enumerate(links):
             EC.presence_of_element_located((By.CSS_SELECTOR,
                                                      "div[id^='commentTemplate-']")))
     except selenium.common.exceptions.TimeoutException:
-        print("First comment not loaded - continuing")
+        print("first comment not found (likely no comments)")
         continue
 
     ## page now loaded - and includes comments
@@ -105,15 +105,15 @@ for idx, link in enumerate(links):
           " article_tag4, headline, user_id, user_name, comment_posted, comment_text) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)" \
           "ON DUPLICATE KEY UPDATE id=id"
 
-    print(headline)
-    print(article_time)
-    print(link)
-    print(tags)
-    print(article_id)
-    print(f'# of comments:{len(comments)}')
+    # print(headline)
+    # print(article_time)
+    # print(link)
+    # print(tags)
+    # print(article_id)
+    # print(f'# of comments:{len(comments)}')
 
     for comment in comments:
-        print("--------------------")
+        #print("--------------------")
 
         # #page attributes
         # print(headline)
@@ -127,25 +127,25 @@ for idx, link in enumerate(links):
         user_id = user_name_div.get_attribute('data-user-id')
         if user_id == "":
             continue
-        print(user_id)
+        #print(user_id)
 
         #username
         user_name = user_name_div.get_attribute('data-user-name')
-        print(user_name)
+        #print(user_name)
 
 
         #time stamp
         time_stamp = comment.find_element(By.CLASS_NAME, 'comment__posted.formatTimeStampEs6.timestamp.posted-date').get_attribute('data-timestamp')
         time_stamp_datetime = datetime.fromtimestamp(int(time_stamp))
-        print(time_stamp_datetime)
+        #print(time_stamp_datetime)
 
         #comment text
         comment_text = comment.find_element(By.CLASS_NAME, 'comment__text.comment-text').get_attribute('innerText')
-        print(comment_text)
+        #print(comment_text)
 
         #comment id
         comment_id = article_id + time_stamp
-        print(comment_id)
+        #print(comment_id)
 
         val = (comment_id, link, article_time, article_id, tags[0], tags[1], tags[2], tags[3], headline,
                user_id, user_name, time_stamp_datetime, comment_text)
@@ -153,14 +153,12 @@ for idx, link in enumerate(links):
         cursor.execute(sql, val)
         mydb.commit()
 
-
-
-    # if idx == 25:
-    #     driver.quit()
-    #     os._exit(1)
-    #     break
+#get number of row in table
+cursor.execute("SELECT COUNT(*) FROM comments")
+print(f'Total row in DB: {cursor.fetchone()[0]}')
 
 driver.quit()
 mydb.close()
 os.system('systemctl stop mysql')
 os._exit(1)
+
