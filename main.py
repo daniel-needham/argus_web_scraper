@@ -1,5 +1,9 @@
 import os
 import re
+from datetime import datetime
+import mysql.connector
+import time
+time.strftime('%Y-%m-%d %H:%M:%S')
 
 import selenium.common.exceptions
 from tqdm import tqdm
@@ -18,6 +22,17 @@ options.add_argument("--no-sandbox")
 options.add_argument("--disable-setuid-sandbox")
 options.add_argument("--disable-dev-shm-usage")
 # options.add_argument("--headless")
+
+os.system('systemctl start mysql')
+
+mydb = mysql.connector.connect(
+  host="localhost",
+  user="argus",
+  password="argus123",
+  database="ArgusComments"
+)
+
+cursor = mydb.cursor()
 
 driver = uc.Chrome(options=options, use_subprocess=False)
 driver.get('https://www.theargus.co.uk/news/')
@@ -70,9 +85,14 @@ for idx, link in enumerate(links):
     #headline
     headline = driver.find_element(By.CLASS_NAME, 'mar-article__headline').get_attribute('innerText')
 
+    article_time = driver.find_element(By.TAG_NAME, 'time').get_attribute('data-timestamp')
+    article_time = datetime.fromtimestamp(int(article_time))
+
     #tags
     tags = driver.find_elements(By.CLASS_NAME, 'article-tags')
-    tags = set([tag.get_attribute('innerText') for tag in tags])
+    tags = list(set([tag.get_attribute('innerText') for tag in tags]))
+    fill = [""] * 4
+    tags = tags[:4] + fill[len(tags):]
 
     #article id
     article_id = re.search(r'\/(\d+)', link).group(1)
@@ -80,7 +100,13 @@ for idx, link in enumerate(links):
     comments = comment_container.find_elements(By.CSS_SELECTOR,
                                                         "div[id^='commentTemplate-']")
     # page attributes
+
+    sql = "INSERT INTO comments (id, url, article_posted, article_id, article_tag1, article_tag2, article_tag3," \
+          " article_tag4, headline, user_id, user_name, comment_posted, comment_text) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)" \
+          "ON DUPLICATE KEY UPDATE id=id"
+
     print(headline)
+    print(article_time)
     print(link)
     print(tags)
     print(article_id)
@@ -110,21 +136,31 @@ for idx, link in enumerate(links):
 
         #time stamp
         time_stamp = comment.find_element(By.CLASS_NAME, 'comment__posted.formatTimeStampEs6.timestamp.posted-date').get_attribute('data-timestamp')
-        print(time_stamp)
+        time_stamp_datetime = datetime.fromtimestamp(int(time_stamp))
+        print(time_stamp_datetime)
 
         #comment text
-        comment_text = comment.find_element(By.CLASS_NAME, 'comment__text.comment-text')
-        print(comment_text.get_attribute('innerText'))
+        comment_text = comment.find_element(By.CLASS_NAME, 'comment__text.comment-text').get_attribute('innerText')
+        print(comment_text)
 
         #comment id
         comment_id = article_id + time_stamp
         print(comment_id)
 
+        val = (comment_id, link, article_time, article_id, tags[0], tags[1], tags[2], tags[3], headline,
+               user_id, user_name, time_stamp_datetime, comment_text)
+
+        cursor.execute(sql, val)
+        mydb.commit()
 
 
-    if idx == 25:
-        driver.quit()
-        os._exit(1)
-        break
+
+    # if idx == 25:
+    #     driver.quit()
+    #     os._exit(1)
+    #     break
 
 driver.quit()
+mydb.close()
+os.system('systemctl stop mysql')
+os._exit(1)
